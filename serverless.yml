@@ -2,6 +2,11 @@ service: notifications-platform
 
 frameworkVersion: '3'
 
+plugins:
+  - serverless-esbuild
+  - serverless-dotenv-plugin
+  - serverless-offline
+
 provider:
   name: aws
   runtime: nodejs18.x
@@ -13,13 +18,22 @@ provider:
     NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
     NOTIFICATION_DLQ_URL: !Ref NotificationDeadLetterQueue
 
-plugins:
-  - serverless-typescript
-  - serverless-offline
-
 custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    exclude: ['aws-sdk']
+    target: 'node18'
+    platform: 'node'
+    concurrency: 10
+    watch:
+      pattern: ['src/**/*.ts']
+      ignore: ['.serverless/**/*', '.build/**/*']
+
   serverless-offline:
     httpPort: 4000
+    useChildProcesses: true
 
 resources:
   - ${file(resources/dynamodb.yml)}
@@ -27,7 +41,7 @@ resources:
 
 functions:
   getNotifications:
-    handler: src/handlers/notifications/getNotifications.handler
+    handler: src/adapters/primary/handlers/notifications/getNotifications.handler
     events:
       - http:
           path: notification_events
@@ -42,7 +56,7 @@ functions:
           - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
 
   getNotificationById:
-    handler: src/handlers/notifications/getNotificationById.handler
+    handler: src/adapters/primary/handlers/notifications/getNotificationById.handler
     events:
       - http:
           path: notification_events/{id}
@@ -56,7 +70,7 @@ functions:
           - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
 
   replayNotification:
-    handler: src/handlers/notifications/replayNotification.handler
+    handler: src/adapters/primary/handlers/notifications/replayNotification.handler
     events:
       - http:
           path: notification_events/{id}/replay
@@ -73,7 +87,7 @@ functions:
           - !GetAtt NotificationQueue.Arn
 
   sendWebhook:
-    handler: src/handlers/webhooks/sendWebhook.handler
+    handler: src/adapters/primary/handlers/webhooks/sendWebhook.handler
     events:
       - sqs:
           arn: !GetAtt NotificationQueue.Arn
