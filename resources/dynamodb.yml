@@ -1,0 +1,51 @@
+Resources:
+  NotificationEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ${self:service}-${self:provider.stage}-notification_events
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: client_id
+          AttributeType: S
+        - AttributeName: event_id
+          AttributeType: S
+        - AttributeName: delivery_status
+          AttributeType: S
+        - AttributeName: event_type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: client_id
+          KeyType: HASH
+        - AttributeName: event_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: StatusDateIndex
+          KeySchema:
+            - AttributeName: client_id
+              KeyType: HASH
+            - AttributeName: delivery_status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - creation_date
+              - delivery_date
+        - IndexName: EventTypeIndex
+          KeySchema:
+            - AttributeName: client_id
+              KeyType: HASH
+            - AttributeName: event_type
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - creation_date
+              - delivery_date
+              - delivery_status
+              - webhook_url
+        - IndexName: EventIdIndex
+          KeySchema:
+            - AttributeName: event_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL 
