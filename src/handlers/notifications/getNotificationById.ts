@@ -1,0 +1,1 @@
+// Handler for GET /notification_events/{id} 
