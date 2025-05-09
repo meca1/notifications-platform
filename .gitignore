@@ -68,7 +68,3 @@ temp/
 # Debug
 .debug/
 debug.log
-
-# Local development
-local/
-local.* 
