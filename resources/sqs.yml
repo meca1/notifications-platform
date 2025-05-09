@@ -1,0 +1,47 @@
+Resources:
+  NotificationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-notification-dlq
+      MessageRetentionPeriod: 1209600  # 14 days in seconds
+      VisibilityTimeout: 30
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-notification-queue
+      VisibilityTimeout: 30
+      MessageRetentionPeriod: 345600  # 4 days in seconds
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
+        maxReceiveCount: 3
+      RedriveAllowPolicy:
+        redrivePermission: allowAll
+
+Outputs:
+  NotificationQueueUrl:
+    Description: URL of the notification queue
+    Value: !Ref NotificationQueue
+    Export:
+      Name: ${self:service}-${self:provider.stage}-NotificationQueueUrl
+
+  NotificationQueueArn:
+    Description: ARN of the notification queue
+    Value: !GetAtt NotificationQueue.Arn
+    Export:
+      Name: ${self:service}-${self:provider.stage}-NotificationQueueArn
+
+  NotificationDLQUrl:
+    Description: URL of the notification dead letter queue
+    Value: !Ref NotificationDeadLetterQueue
+    Export:
+      Name: ${self:service}-${self:provider.stage}-NotificationDLQUrl
+
+  NotificationDLQArn:
+    Description: ARN of the notification dead letter queue
+    Value: !GetAtt NotificationDeadLetterQueue.Arn
+    Export:
+      Name: ${self:service}-${self:provider.stage}-NotificationDLQArn 
