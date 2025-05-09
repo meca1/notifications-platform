@@ -26,4 +26,9 @@ export interface NotificationStatusKey {
 export interface NotificationEventTypeKey {
   client_id: string;
   event_type: string;
+}
+
+export interface QueryResult {
+  items: Notification[];
+  lastEvaluatedKey?: Record<string, any>;
 } 

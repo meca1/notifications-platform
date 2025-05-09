@@ -1,8 +1,11 @@
-import { Notification } from '../../domain/models/Notification';
+import { Notification, QueryResult } from '../../domain/models/Notification';
 
 export interface INotificationRepository {
-  findById(id: string): Promise<Notification | null>;
-  findAll(filters?: any): Promise<Notification[]>;
-  save(notification: Notification): Promise<void>;
-  update(id: string, notification: Partial<Notification>): Promise<void>;
+  getByClientId(clientId: string, limit?: number, startKey?: Record<string, any>): Promise<QueryResult>;
+  getByStatusAndDate(clientId: string, deliveryStatus: string, fromDate?: string, toDate?: string, limit?: number, startKey?: Record<string, any>): Promise<QueryResult>;
+  getByEventId(eventId: string): Promise<Notification | null>;
+  getByEventType(clientId: string, eventType: string, limit?: number, startKey?: Record<string, any>): Promise<QueryResult>;
+  updateNotificationStatus(clientId: string, eventId: string, status: 'completed' | 'failed' | 'pending', errorMessage?: string): Promise<void>;
+  incrementRetryCount(clientId: string, eventId: string): Promise<void>;
+  createNotification(event: Notification): Promise<void>;
 } 
