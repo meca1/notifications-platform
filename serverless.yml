@@ -183,3 +183,12 @@ functions:
           - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
           - !GetAtt NotificationQueue.Arn
           - !GetAtt NotificationDeadLetterQueue.Arn
+          
+  createSubscription:
+    handler: src/adapters/primary/handlers/notifications/createSubscription.handler
+    events:
+      - http:
+          path: subscriptions
+          method: post
+          cors: true
+          authorizer: aws_iam
