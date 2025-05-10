@@ -13,6 +13,8 @@ Resources:
           AttributeType: S
         - AttributeName: event_type
           AttributeType: S
+        - AttributeName: creation_date
+          AttributeType: S
       KeySchema:
         - AttributeName: client_id
           KeyType: HASH
@@ -30,6 +32,12 @@ Resources:
             NonKeyAttributes:
               - creation_date
               - delivery_date
+              - delivery_status
+              - event_type
+              - content
+              - webhook_url
+              - retry_count
+              - error_message
         - IndexName: EventTypeIndex
           KeySchema:
             - AttributeName: client_id
@@ -43,9 +51,28 @@ Resources:
               - delivery_date
               - delivery_status
               - webhook_url
+              - content
+              - retry_count
+              - error_message
         - IndexName: EventIdIndex
           KeySchema:
             - AttributeName: event_id
               KeyType: HASH
           Projection:
-            ProjectionType: ALL 
+            ProjectionType: ALL
+        - IndexName: CreationDateIndex
+          KeySchema:
+            - AttributeName: client_id
+              KeyType: HASH
+            - AttributeName: creation_date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - delivery_status
+              - delivery_date
+              - event_type
+              - content
+              - webhook_url
+              - retry_count
+              - error_message 
