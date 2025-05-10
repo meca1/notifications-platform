@@ -1,109 +1,126 @@
-import { IStorageClient } from '../../../core/ports/output/IStorageClient';
-import { Notification, QueryResult } from '../../../core/domain/models/Notification';
-import { env } from '../../../config/env';
+// src/adapters/secondary/repositories/DynamoDbNotificationRepository.ts
+import { Notification } from '../../../core/domain/models/Notification';
+import { INotificationRepository, NotificationFilters } from '../../../core/ports/output/INotificationRepository';
+import { NotificationNotFoundException } from '../../../core/domain/exceptions/NotificationNotFoundException';
+import { NotificationMapper } from '../mappers/NotificationMapper';
+import { logger } from '../../../lib/logger';
+import { CloudStorageClient } from '../clients/storageClient';
 
-export class NotificationRepository {
+export class NotificationRepository implements INotificationRepository {
+  private readonly storageClient: CloudStorageClient;
   private readonly tableName: string;
 
-  constructor(private readonly storageClient: IStorageClient) {
-    this.tableName = env.dbTable;
+  constructor(storageClient: CloudStorageClient) {
+    this.storageClient = storageClient;
+    this.tableName = 'notification_events';
   }
 
-  // 1. Obtener todas las notificaciones de un cliente
-  async getByClientId(clientId: string, limit?: number, startKey?: Record<string, any>): Promise<QueryResult> {
-    const result = await this.storageClient.query<Notification>({
-      tableName: this.tableName,
-      keyCondition: 'client_id = :clientId',
-      attributes: { ':clientId': clientId },
-      limit,
-      startKey,
-    });
-    return { items: result.items || [], lastEvaluatedKey: result.lastEvaluatedKey };
+  async findById(id: string): Promise<Notification> {
+    try {
+      const result = await this.storageClient.get<Notification>({
+        tableName: this.tableName,
+        key: { event_id: id }
+      });
+
+      if (!result.item) {
+        throw new NotificationNotFoundException(`Notification with id ${id} not found`);
+      }
+
+      return NotificationMapper.toDomain(result.item);
+    } catch (error) {
+      logger.error('Error finding notification by ID', { id, error });
+      throw error;
+    }
   }
 
-  // 2. Filtrar por estado de entrega y fecha (StatusDateIndex)
-  async getByStatusAndDate(clientId: string, deliveryStatus: string, fromDate?: string, toDate?: string, limit?: number, startKey?: Record<string, any>): Promise<QueryResult> {
-    const filterCondition = fromDate && toDate ? 'delivery_date BETWEEN :fromDate AND :toDate' : undefined;
-    const attributes: Record<string, any> = {
-      ':clientId': clientId,
-      ':status': deliveryStatus,
-      ...(fromDate && { ':fromDate': fromDate }),
-      ...(toDate && { ':toDate': toDate }),
-    };
-    const result = await this.storageClient.query<Notification>({
-      tableName: this.tableName,
-      indexName: 'StatusDateIndex',
-      keyCondition: 'client_id = :clientId AND delivery_status = :status',
-      filterCondition,
-      attributes,
-      limit,
-      startKey,
-    });
-    return { items: result.items || [], lastEvaluatedKey: result.lastEvaluatedKey };
+  async findByClientId(clientId: string, filters?: Partial<NotificationFilters>): Promise<Notification[]> {
+    try {
+      const attributes: Record<string, any> = { ':clientId': clientId };
+      let filterCondition: string | undefined;
+
+      if (filters?.status) {
+        filterCondition = 'delivery_status = :status';
+        attributes[':status'] = filters.status;
+      }
+
+      if (filters?.fromDate) {
+        filterCondition = filterCondition 
+          ? `${filterCondition} AND creation_date >= :fromDate`
+          : 'creation_date >= :fromDate';
+        attributes[':fromDate'] = filters.fromDate.toISOString();
+      }
+
+      if (filters?.toDate) {
+        filterCondition = filterCondition 
+          ? `${filterCondition} AND creation_date <= :toDate`
+          : 'creation_date <= :toDate';
+        attributes[':toDate'] = filters.toDate.toISOString();
+      }
+
+      logger.info('Querying notifications', {
+        tableName: this.tableName,
+        clientId,
+        filters,
+        attributes,
+        filterCondition
+      });
+
+      const result = await this.storageClient.query<Notification>({
+        tableName: this.tableName,
+        keyCondition: 'client_id = :clientId',
+        filterCondition,
+        attributes
+      });
+
+      logger.info('Query result', { 
+        itemsCount: result.items?.length,
+        items: result.items 
+      });
+
+      if (!result.items || result.items.length === 0) {
+        return [];
+      }
+
+      return result.items.map(item => {
+        logger.info('Mapping item', { item });
+        return NotificationMapper.toDomain(item);
+      });
+    } catch (error) {
+      logger.error('Error finding notifications by client ID', { clientId, filters, error });
+      throw error;
+    }
   }
 
-  // 3. Obtener un evento específico por su ID (EventIdIndex)
-  async getByEventId(eventId: string): Promise<Notification | null> {
-    const result = await this.storageClient.query<Notification>({
-      tableName: this.tableName,
-      indexName: 'EventIdIndex',
-      keyCondition: 'event_id = :eventId',
-      attributes: { ':eventId': eventId },
-      limit: 1,
-    });
-    return result.items && result.items.length > 0 ? result.items[0] : null;
+  async save(notification: Notification): Promise<void> {
+    try {
+      const item = NotificationMapper.toPersistence(notification);
+      await this.storageClient.put({
+        tableName: this.tableName,
+        item
+      });
+    } catch (error) {
+      logger.error('Error saving notification', { notification, error });
+      throw error;
+    }
   }
 
-  // 4. Consultar eventos de un tipo específico (EventTypeIndex)
-  async getByEventType(clientId: string, eventType: string, limit?: number, startKey?: Record<string, any>): Promise<QueryResult> {
-    const result = await this.storageClient.query<Notification>({
-      tableName: this.tableName,
-      indexName: 'EventTypeIndex',
-      keyCondition: 'client_id = :clientId AND event_type = :eventType',
-      attributes: { ':clientId': clientId, ':eventType': eventType },
-      limit,
-      startKey,
-    });
-    return { items: result.items || [], lastEvaluatedKey: result.lastEvaluatedKey };
+  async update(notification: Notification): Promise<void> {
+    try {
+      const item = NotificationMapper.toPersistence(notification);
+      await this.storageClient.update({
+        tableName: this.tableName,
+        key: { event_id: notification.eventId },
+        updateExpression: 'SET delivery_status = :status, delivery_date = :date, retry_count = :retries, error_message = :error',
+        attributes: {
+          ':status': item.delivery_status,
+          ':date': item.delivery_date,
+          ':retries': item.retry_count,
+          ':error': item.error_message
+        }
+      });
+    } catch (error) {
+      logger.error('Error updating notification', { notification, error });
+      throw error;
+    }
   }
-
-  // Métodos de escritura y actualización (puedes mantener los que ya tienes)
-  async updateNotificationStatus(
-    clientId: string,
-    eventId: string,
-    status: 'completed' | 'failed' | 'pending',
-    errorMessage?: string
-  ): Promise<void> {
-    await this.storageClient.update({
-      tableName: this.tableName,
-      key: { client_id: clientId, event_id: eventId },
-      updateExpression: 'SET delivery_status = :status, delivery_date = :date, error_message = :error',
-      attributes: {
-        ':status': status,
-        ':date': new Date().toISOString(),
-        ':error': errorMessage || null,
-      },
-    });
-  }
-
-  async incrementRetryCount(clientId: string, eventId: string): Promise<void> {
-    await this.storageClient.update({
-      tableName: this.tableName,
-      key: { client_id: clientId, event_id: eventId },
-      updateExpression: 'SET retry_count = retry_count + :inc',
-      attributes: { ':inc': 1 },
-    });
-  }
-
-  async createNotification(event: Notification): Promise<void> {
-    await this.storageClient.put({
-      tableName: this.tableName,
-      item: {
-        ...event,
-        creation_date: new Date().toISOString(),
-        delivery_date: new Date().toISOString(),
-        retry_count: 0,
-      },
-    });
-  }
-} 
+}
