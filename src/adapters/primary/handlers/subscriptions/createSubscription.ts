@@ -8,20 +8,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   try {
     const region = process.env.AWS_REGION || 'us-east-1';
     const endpoint = process.env.DYNAMODB_ENDPOINT;
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-
-    if (!accessKeyId || !secretAccessKey) {
-      throw new Error('AWS credentials are required');
-    }
 
     const storageClient = new CloudStorageClient({
       region,
       endpoint,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
     });
 
     const subscriptionRepository = new SubscriptionRepository(storageClient);
@@ -45,11 +35,27 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify(subscription),
     };
   } catch (error) {
-    logger.error('Error creating subscription', { error });
+    const { clientId, eventType, webhookUrl } = JSON.parse(event.body || '{}');
+    
+    logger.error('Error creating subscription', { 
+      error: error instanceof Error ? {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      } : error,
+      clientId,
+      eventType,
+      webhookUrl
+    });
+    
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    const statusCode = error instanceof Error && error.name === 'InvalidWebhookUrlException' ? 400 : 500;
+    
     return {
-      statusCode: 500,
+      statusCode,
       body: JSON.stringify({
-        message: 'Internal server error',
+        message: errorMessage,
+        error: error instanceof Error ? error.name : 'UnknownError'
       }),
     };
   }
