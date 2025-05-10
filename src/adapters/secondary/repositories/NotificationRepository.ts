@@ -109,19 +109,27 @@ export class NotificationRepository implements INotificationRepository {
   async update(notification: Notification): Promise<void> {
     try {
       const item = NotificationMapper.toPersistence(notification);
+      const updateExpression = 'SET delivery_status = :status, delivery_date = :date, retry_count = :retries' + 
+        (item.error_message ? ', error_message = :error' : '');
+      
+      const attributes: Record<string, any> = {
+        ':status': item.delivery_status,
+        ':date': item.delivery_date,
+        ':retries': item.retry_count
+      };
+
+      if (item.error_message) {
+        attributes[':error'] = item.error_message;
+      }
+
       await this.storageClient.update({
         tableName: this.tableName,
         key: { 
           client_id: notification.clientId,
           event_id: notification.eventId 
         },
-        updateExpression: 'SET delivery_status = :status, delivery_date = :date, retry_count = :retries, error_message = :error',
-        attributes: {
-          ':status': item.delivery_status,
-          ':date': item.delivery_date,
-          ':retries': item.retry_count,
-          ':error': item.error_message
-        }
+        updateExpression,
+        attributes
       });
     } catch (error) {
       logger.error('Error updating notification', { notification, error });

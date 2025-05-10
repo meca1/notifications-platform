@@ -3,6 +3,7 @@ import { DeliveryStatus } from '../valueObjects/DeliveryStatus';
 import { EventType } from '../valueObjects/EventType';
 
 export class Notification {
+  private static readonly MAX_RETRIES = 3;
   constructor(
     public readonly eventId: string,
     public readonly clientId: string,
@@ -32,5 +33,9 @@ export class Notification {
 
   canBeRetried(): boolean {
     return this.deliveryStatus === DeliveryStatus.FAILED && this.retryCount < 3;
+  }
+
+  getMaxRetries(): number {
+    return Notification.MAX_RETRIES;
   }
 }

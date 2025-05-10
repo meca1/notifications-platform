@@ -16,31 +16,47 @@ export class DeliverNotificationUseCase {
 
   async execute(notification: Notification): Promise<void> {
     try {
-      logger.info('Attempting to deliver notification', { eventId: notification.eventId });
+      logger.info('Attempting to deliver notification', { 
+        eventId: notification.eventId,
+        clientId: notification.clientId,
+        eventType: notification.eventType.getValue(),
+        currentStatus: notification.deliveryStatus,
+        retryCount: notification.retryCount
+      });
 
       // Buscar la suscripción para obtener el webhookUrl
       const subscription = await this.subscriptionRepository.findByClientIdAndEventType(
         notification.clientId,
-        notification.eventType.toString()
+        notification.eventType.getValue()
       );
 
       if (!subscription) {
         logger.warn('No subscription found for notification', { 
           eventId: notification.eventId,
           clientId: notification.clientId,
-          eventType: notification.eventType.toString()
+          eventType: notification.eventType.getValue()
         });
         
         // Marcar como fallida cuando no hay suscripción
         notification.markAsFailed('No active subscription found for this event type');
         await this.notificationRepository.update(notification);
+        logger.info('Notification marked as failed due to missing subscription', {
+          eventId: notification.eventId,
+          status: notification.deliveryStatus
+        });
         return;
       }
 
-      // Enviar al webhook
-      await this.webhookClient.send(subscription.webhookUrl.toString(), {
+      logger.info('Found subscription for notification', {
         eventId: notification.eventId,
-        eventType: notification.eventType.toString(),
+        webhookUrl: subscription.webhookUrl.getValue(),
+        subscriptionActive: subscription.isActive
+      });
+
+      // Enviar al webhook
+      await this.webhookClient.send(subscription.webhookUrl.getValue(), {
+        eventId: notification.eventId,
+        eventType: notification.eventType.getValue(),
         content: notification.content,
         creationDate: notification.creationDate.toISOString(),
       });
@@ -49,24 +65,49 @@ export class DeliverNotificationUseCase {
       notification.markAsDelivered();
       await this.notificationRepository.update(notification);
 
-      logger.info('Notification delivered successfully', { eventId: notification.eventId });
+      logger.info('Notification delivered successfully', { 
+        eventId: notification.eventId,
+        status: notification.deliveryStatus,
+        deliveryDate: notification.deliveryDate
+      });
     } catch (error) {
-      logger.error('Failed to deliver notification', { eventId: notification.eventId, error });
+      logger.error('Failed to deliver notification', { 
+        eventId: notification.eventId,
+        error: error instanceof Error ? {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        } : error
+      });
 
       // Incrementar contador de reintentos
       notification.incrementRetryCount();
       notification.markAsFailed(error instanceof Error ? error.message : 'Unknown error');
 
       // Verificar si se puede reintentar
-      if (this.retryPolicy.shouldRetry(notification.retryCount)) {
-        logger.info('Scheduling retry', { eventId: notification.eventId, retryCount: notification.retryCount });
+      if (notification.canBeRetried()) {
+        logger.info('Scheduling retry', { 
+          eventId: notification.eventId, 
+          retryCount: notification.retryCount,
+          maxRetries: 3
+        });
         throw new DeliveryFailedException(`Retry ${notification.retryCount} scheduled for notification ${notification.eventId}`);
       } else {
-        logger.error('Max retries reached', { eventId: notification.eventId });
+        logger.error('Max retries reached', { 
+          eventId: notification.eventId,
+          retryCount: notification.retryCount,
+          maxRetries: notification.getMaxRetries()
+        });
         notification.markAsFailed('Max retries reached');
       }
 
       await this.notificationRepository.update(notification);
+      logger.info('Notification status updated after failure', {
+        eventId: notification.eventId,
+        status: notification.deliveryStatus,
+        errorMessage: notification.errorMessage
+      });
+
       throw new DeliveryFailedException(
         `Failed to deliver notification ${notification.eventId}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
