@@ -6,6 +6,7 @@ import { errorHandler } from '../../../../lib/errorHandler';
 import { logger } from '../../../../lib/logger';
 import { CloudStorageClient } from '../../../secondary/clients/storageClient';
 import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
+import { UnauthorizedError } from '../../../../lib/errorHandler';
 
 // Configuración del cliente de almacenamiento
 const storageConfig: StorageConfig = {
@@ -17,30 +18,36 @@ const storageConfig: StorageConfig = {
   }
 };
 
-// Inyección de dependencias (en un escenario real usaríamos un contenedor DI)
+// Inyección de dependencias
 const storageClient = new CloudStorageClient(storageConfig);
 const notificationRepository = new NotificationRepository(storageClient);
 const getNotificationUseCase = new GetNotificationUseCase(notificationRepository);
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('Getting notification by ID', { event });
+    logger.info('Getting notification by ID', { 
+      event,
+      requestContext: event.requestContext,
+      authorizer: event.requestContext.authorizer
+    });
     
     const notificationId = event.pathParameters?.id;
-    const clientId = event.requestContext.authorizer?.claims.sub; // Asumiendo autenticación con Cognito
-    
     if (!notificationId) {
       return {
         statusCode: 400,
         body: JSON.stringify({ message: 'Notification ID is required' })
       };
     }
+
+    // Obtener clientId del contexto del autorizador
+    const clientId = event.requestContext.authorizer?.clientId || event.requestContext.authorizer?.sub;
+    logger.info('Extracted client ID from authorizer', { clientId });
     
     if (!clientId) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Unauthorized' })
-      };
+      logger.error('Client ID not found in authorizer context', {
+        authorizer: event.requestContext.authorizer
+      });
+      throw new UnauthorizedError('Client ID is required');
     }
     
     const notification = await getNotificationUseCase.execute(notificationId, clientId);
@@ -51,6 +58,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify(notificationDto)
     };
   } catch (error) {
+    logger.error('Error getting notification by ID', { error });
     return errorHandler(error as Error);
   }
 };
