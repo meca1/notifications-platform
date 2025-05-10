@@ -83,31 +83,9 @@ export class DeliverNotificationUseCase {
       // Incrementar contador de reintentos
       notification.incrementRetryCount();
       notification.markAsFailed(error instanceof Error ? error.message : 'Unknown error');
-
-      // Verificar si se puede reintentar
-      if (notification.canBeRetried()) {
-        logger.info('Scheduling retry', { 
-          eventId: notification.eventId, 
-          retryCount: notification.retryCount,
-          maxRetries: 3
-        });
-        throw new DeliveryFailedException(`Retry ${notification.retryCount} scheduled for notification ${notification.eventId}`);
-      } else {
-        logger.error('Max retries reached', { 
-          eventId: notification.eventId,
-          retryCount: notification.retryCount,
-          maxRetries: notification.getMaxRetries()
-        });
-        notification.markAsFailed('Max retries reached');
-      }
-
       await this.notificationRepository.update(notification);
-      logger.info('Notification status updated after failure', {
-        eventId: notification.eventId,
-        status: notification.deliveryStatus,
-        errorMessage: notification.errorMessage
-      });
 
+      // Lanzar excepción para que SQS maneje el reintento
       throw new DeliveryFailedException(
         `Failed to deliver notification ${notification.eventId}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
