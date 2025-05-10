@@ -35,7 +35,6 @@ Resources:
               - delivery_status
               - event_type
               - content
-              - webhook_url
               - retry_count
               - error_message
         - IndexName: EventTypeIndex
@@ -50,7 +49,6 @@ Resources:
               - creation_date
               - delivery_date
               - delivery_status
-              - webhook_url
               - content
               - retry_count
               - error_message
@@ -73,6 +71,18 @@ Resources:
               - delivery_date
               - event_type
               - content
-              - webhook_url
               - retry_count
-              - error_message 
+              - error_message
+
+Outputs:
+  NotificationEventsTableName:
+    Description: Name of the notification events table
+    Value: !Ref NotificationEventsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-NotificationEventsTableName
+
+  NotificationEventsTableArn:
+    Description: ARN of the notification events table
+    Value: !GetAtt NotificationEventsTable.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-NotificationEventsTableArn 

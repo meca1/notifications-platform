@@ -2,7 +2,7 @@ Resources:
   SubscriptionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub ${AWS::StackName}-subscriptions
+      TableName: ${self:service}-${self:provider.stage}-subscriptions
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: client_id
