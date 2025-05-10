@@ -21,6 +21,7 @@ custom:
       - DYNAMODB_TABLE
       - NOTIFICATION_QUEUE_URL
       - NOTIFICATION_DLQ_URL
+      - MOCK_WEBHOOK_SHOULD_FAIL
   esbuild:
     bundle: true
     minify: true
@@ -157,3 +158,5 @@ functions:
           path: webhook
           method: post
           cors: true
+    environment:
+      MOCK_WEBHOOK_SHOULD_FAIL: ${opt:mockWebhookShouldFail, 'false'}

@@ -11,6 +11,25 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       requestContext: event.requestContext
     });
 
+    // Simular error basado en variable de entorno
+    const shouldFail = process.env.MOCK_WEBHOOK_SHOULD_FAIL === 'true';
+    if (shouldFail) {
+      logger.info('Simulating webhook failure', { 
+        eventId: body.eventId,
+        reason: 'MOCK_WEBHOOK_SHOULD_FAIL is set to true'
+      });
+      
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          message: 'Simulated webhook failure',
+          error: 'MOCK_WEBHOOK_SHOULD_FAIL is set to true',
+          receivedAt: new Date().toISOString(),
+          data: body
+        })
+      };
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({
