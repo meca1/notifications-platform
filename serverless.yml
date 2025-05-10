@@ -58,6 +58,7 @@ provider:
             - !GetAtt NotificationEventsTable.Arn
             - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
             - !GetAtt SubscriptionsTable.Arn
+            - !Join ['', [!GetAtt SubscriptionsTable.Arn, '/index/*']]
         - Effect: Allow
           Action:
             - sqs:SendMessage
@@ -138,5 +139,13 @@ functions:
     events:
       - http:
           path: subscriptions
+          method: post
+          cors: true
+
+  createNotification:
+    handler: src/adapters/primary/handlers/notifications/createNotification.handler
+    events:
+      - http:
+          path: notification_events
           method: post
           cors: true
