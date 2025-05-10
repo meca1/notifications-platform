@@ -37,7 +37,7 @@ export class CreateNotificationUseCase implements ICreateNotificationUseCase {
       await this.queueClient.sendMessage({
         eventId: notification.eventId,
         clientId: notification.clientId,
-        eventType: notification.eventType.toString()
+        eventType: eventType
       });
 
       logger.info('Notification created and queued successfully', { 
