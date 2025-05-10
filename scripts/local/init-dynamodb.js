@@ -10,7 +10,6 @@ const client = new DynamoDBClient({
   credentials: {
     accessKeyId: 'local',
     secretAccessKey: 'local' 
-    
   }
 });
 
@@ -21,7 +20,8 @@ const tableParams = {
     { AttributeName: 'client_id', AttributeType: 'S' },
     { AttributeName: 'event_id', AttributeType: 'S' },
     { AttributeName: 'delivery_status', AttributeType: 'S' },
-    { AttributeName: 'event_type', AttributeType: 'S' }
+    { AttributeName: 'event_type', AttributeType: 'S' },
+    { AttributeName: 'creation_date', AttributeType: 'S' }
   ],
   KeySchema: [
     { AttributeName: 'client_id', KeyType: 'HASH' },
@@ -36,7 +36,16 @@ const tableParams = {
       ],
       Projection: {
         ProjectionType: 'INCLUDE',
-        NonKeyAttributes: ['creation_date', 'delivery_date']
+        NonKeyAttributes: [
+          'creation_date',
+          'delivery_date',
+          'delivery_status',
+          'event_type',
+          'content',
+          'webhook_url',
+          'retry_count',
+          'error_message'
+        ]
       }
     },
     {
@@ -47,7 +56,15 @@ const tableParams = {
       ],
       Projection: {
         ProjectionType: 'INCLUDE',
-        NonKeyAttributes: ['creation_date', 'delivery_date', 'delivery_status', 'webhook_url']
+        NonKeyAttributes: [
+          'creation_date',
+          'delivery_date',
+          'delivery_status',
+          'webhook_url',
+          'content',
+          'retry_count',
+          'error_message'
+        ]
       }
     },
     {
@@ -57,6 +74,25 @@ const tableParams = {
       ],
       Projection: {
         ProjectionType: 'ALL'
+      }
+    },
+    {
+      IndexName: 'CreationDateIndex',
+      KeySchema: [
+        { AttributeName: 'client_id', KeyType: 'HASH' },
+        { AttributeName: 'creation_date', KeyType: 'RANGE' }
+      ],
+      Projection: {
+        ProjectionType: 'INCLUDE',
+        NonKeyAttributes: [
+          'delivery_status',
+          'delivery_date',
+          'event_type',
+          'content',
+          'webhook_url',
+          'retry_count',
+          'error_message'
+        ]
       }
     }
   ]
