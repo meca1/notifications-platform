@@ -5,7 +5,7 @@ const {
 } = require('@aws-sdk/client-dynamodb');
 
 const client = new DynamoDBClient({
-  endpoint: 'http://dynamodb:8000',
+  endpoint: 'http://localhost:8000',
   region: 'us-east-1',
   credentials: {
     accessKeyId: 'local',
