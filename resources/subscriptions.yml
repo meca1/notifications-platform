@@ -1,0 +1,29 @@
+Resources:
+  SubscriptionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-subscriptions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: client_id
+          AttributeType: S
+        - AttributeName: event_type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: client_id
+          KeyType: HASH
+        - AttributeName: event_type
+          KeyType: RANGE
+
+Outputs:
+  SubscriptionsTableName:
+    Description: Name of the subscriptions table
+    Value: !Ref SubscriptionsTable
+    Export:
+      Name: !Sub ${AWS::StackName}-SubscriptionsTableName
+
+  SubscriptionsTableArn:
+    Description: ARN of the subscriptions table
+    Value: !GetAtt SubscriptionsTable.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-SubscriptionsTableArn 
