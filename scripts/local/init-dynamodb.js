@@ -13,7 +13,20 @@ const client = new DynamoDBClient({
   }
 });
 
-const tableParams = {
+const subscriptionsTableParams = {
+  TableName: 'subscriptions',
+  BillingMode: 'PAY_PER_REQUEST',
+  AttributeDefinitions: [
+    { AttributeName: 'client_id', AttributeType: 'S' },
+    { AttributeName: 'event_type', AttributeType: 'S' }
+  ],
+  KeySchema: [
+    { AttributeName: 'client_id', KeyType: 'HASH' },
+    { AttributeName: 'event_type', KeyType: 'RANGE' }
+  ]
+};
+
+const notificationEventsTableParams = {
   TableName: 'notification_events',
   BillingMode: 'PAY_PER_REQUEST',
   AttributeDefinitions: [
@@ -98,7 +111,7 @@ const tableParams = {
   ]
 };
 
-async function createTableIfNotExists() {
+async function createTableIfNotExists(tableParams) {
   const tables = await client.send(new ListTablesCommand({}));
   if (tables.TableNames.includes(tableParams.TableName)) {
     console.log(`ℹ️  Table ${tableParams.TableName} already exists`);
@@ -108,7 +121,23 @@ async function createTableIfNotExists() {
   console.log(`✅ Table ${tableParams.TableName} created successfully`);
 }
 
-createTableIfNotExists().catch(err => {
-  console.error('❌ Error creating table:', err);
-  process.exit(1);
-}); 
+async function initTables() {
+  try {
+    console.log('🚀 Initializing DynamoDB tables...\n');
+    
+    // Create subscriptions table
+    console.log('📝 Creating subscriptions table...');
+    await createTableIfNotExists(subscriptionsTableParams);
+    
+    // Create notification events table
+    console.log('\n📝 Creating notification events table...');
+    await createTableIfNotExists(notificationEventsTableParams);
+    
+    console.log('\n✨ All tables initialized successfully!');
+  } catch (err) {
+    console.error('❌ Error initializing tables:', err);
+    process.exit(1);
+  }
+}
+
+initTables(); 
