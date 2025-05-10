@@ -3,6 +3,8 @@ const {
   PutItemCommand
 } = require('@aws-sdk/client-dynamodb');
 const { marshall } = require('@aws-sdk/util-dynamodb');
+const fs = require('fs');
+const path = require('path');
 
 const client = new DynamoDBClient({
   endpoint: 'http://localhost:8000',
@@ -13,28 +15,26 @@ const client = new DynamoDBClient({
   }
 });
 
-const testNotification = {
-  client_id: 'test-client-1',
-  event_id: 'test-event-1',
-  event_type: 'ORDER_CREATED',
-  content: 'Test notification content',
-  webhook_url: 'http://localhost:3000/webhook',
-  delivery_status: 'PENDING',
-  retry_count: 0,
-  creation_date: new Date().toISOString(),
-  delivery_date: null,
-  error_message: null
-};
-
 async function insertTestData() {
   try {
-    const params = {
-      TableName: 'notification_events',
-      Item: marshall(testNotification)
-    };
+    // Read the JSON file
+    const dataPath = path.join(__dirname, 'notifications_events_db.json');
+    const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    
+    console.log(`📥 Found ${data.events.length} events to insert`);
 
-    await client.send(new PutItemCommand(params));
-    console.log('✅ Test data inserted successfully');
+    // Insert each event
+    for (const event of data.events) {
+      const params = {
+        TableName: 'notification_events',
+        Item: marshall(event)
+      };
+
+      await client.send(new PutItemCommand(params));
+      console.log(`✅ Inserted event ${event.event_id}`);
+    }
+
+    console.log('🎉 All test data inserted successfully');
   } catch (error) {
     console.error('❌ Error inserting test data:', error);
     process.exit(1);
