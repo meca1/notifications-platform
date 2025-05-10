@@ -1,7 +1,6 @@
 // src/core/domain/models/Notification.ts
 import { DeliveryStatus } from '../valueObjects/DeliveryStatus';
 import { EventType } from '../valueObjects/EventType';
-import { WebhookUrl } from '../valueObjects/WebhookUrl';
 
 export class Notification {
   constructor(
@@ -12,7 +11,6 @@ export class Notification {
     public readonly creationDate: Date,
     public deliveryDate: Date | null,
     public deliveryStatus: DeliveryStatus,
-    public readonly webhookUrl: WebhookUrl,
     public retryCount: number = 0,
     public errorMessage?: string
   ) {}

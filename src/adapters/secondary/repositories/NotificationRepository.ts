@@ -12,7 +12,7 @@ export class NotificationRepository implements INotificationRepository {
 
   constructor(storageClient: CloudStorageClient) {
     this.storageClient = storageClient;
-    this.tableName = 'notification_events';
+    this.tableName = process.env.NOTIFICATIONS_TABLE || 'notification_events';
   }
 
   async findById(id: string): Promise<Notification> {
@@ -20,8 +20,8 @@ export class NotificationRepository implements INotificationRepository {
       const result = await this.storageClient.query<Notification>({
         tableName: this.tableName,
         indexName: 'EventIdIndex',
-        keyCondition: 'event_id = :eventId',
-        attributes: { ':eventId': id }
+        keyCondition: 'event_id = :event_id',
+        attributes: { ':event_id': id }
       });
 
       if (!result.items || result.items.length === 0) {
@@ -37,7 +37,7 @@ export class NotificationRepository implements INotificationRepository {
 
   async findByClientId(clientId: string, filters?: Partial<NotificationFilters>): Promise<Notification[]> {
     try {
-      const attributes: Record<string, any> = { ':clientId': clientId };
+      const attributes: Record<string, any> = { ':client_id': clientId };
       let filterCondition: string | undefined;
 
       if (filters?.status) {
@@ -69,7 +69,7 @@ export class NotificationRepository implements INotificationRepository {
 
       const result = await this.storageClient.query<Notification>({
         tableName: this.tableName,
-        keyCondition: 'client_id = :clientId',
+        keyCondition: 'client_id = :client_id',
         filterCondition,
         attributes
       });

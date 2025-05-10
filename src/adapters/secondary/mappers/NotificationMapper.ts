@@ -1,6 +1,5 @@
 import { Notification } from '../../../core/domain/models/Notification';
 import { EventType } from '../../../core/domain/valueObjects/EventType';
-import { WebhookUrl } from '../../../core/domain/valueObjects/WebhookUrl';
 import { DeliveryStatus } from '../../../core/domain/valueObjects/DeliveryStatus';
 
 export class NotificationMapper {
@@ -17,7 +16,6 @@ export class NotificationMapper {
       new Date(data.creation_date),
       data.delivery_date ? new Date(data.delivery_date) : null,
       data.delivery_status as DeliveryStatus,
-      WebhookUrl.create(data.webhook_url),
       data.retry_count || 0,
       data.error_message
     );
@@ -32,7 +30,6 @@ export class NotificationMapper {
       creationDate: notification.creationDate.toISOString(),
       deliveryDate: notification.deliveryDate?.toISOString() || null,
       deliveryStatus: notification.deliveryStatus,
-      webhookUrl: notification.webhookUrl.getValue(),
       retryCount: notification.retryCount,
       errorMessage: notification.errorMessage
     };
@@ -47,7 +44,6 @@ export class NotificationMapper {
       creation_date: notification.creationDate.toISOString(),
       delivery_date: notification.deliveryDate?.toISOString() || null,
       delivery_status: notification.deliveryStatus,
-      webhook_url: notification.webhookUrl.getValue(),
       retry_count: notification.retryCount,
       error_message: notification.errorMessage
     };
