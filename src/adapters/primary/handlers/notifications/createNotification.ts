@@ -2,20 +2,24 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CreateNotificationUseCase } from '../../../../application/useCases/notifications/CreateNotificationUseCase';
 import { NotificationRepository } from '../../../secondary/repositories/NotificationRepository';
 import { CloudStorageClient } from '../../../secondary/clients/storageClient';
+import { QueueClient } from '../../../secondary/clients/queueClient';
 import { logger } from '../../../../lib/logger';
+import { env } from '../../../../config/env';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const region = process.env.AWS_REGION || 'us-east-1';
     const endpoint = process.env.DYNAMODB_ENDPOINT;
+    const queueUrl = env.notificationQueueUrl;
 
     const storageClient = new CloudStorageClient({
       region,
       endpoint,
     });
 
+    const queueClient = new QueueClient(queueUrl);
     const notificationRepository = new NotificationRepository(storageClient);
-    const createNotificationUseCase = new CreateNotificationUseCase(notificationRepository);
+    const createNotificationUseCase = new CreateNotificationUseCase(notificationRepository, queueClient);
 
     const { client_id, event_type, content } = JSON.parse(event.body || '{}');
 

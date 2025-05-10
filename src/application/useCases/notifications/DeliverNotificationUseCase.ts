@@ -1,6 +1,7 @@
 import { Notification } from '../../../core/domain/models/Notification';
 import { IWebhookClient } from '../../../core/ports/output/IWebhookClient';
 import { INotificationRepository } from '../../../core/ports/output/INotificationRepository';
+import { ISubscriptionRepository } from '../../../core/ports/output/ISubscriptionRepository';
 import { IRetryPolicy } from '../../../core/ports/output/IRetryPolicy';
 import { DeliveryFailedException } from '../../../core/domain/exceptions/DeliveryFailedException';
 import { logger } from '../../../lib/logger';
@@ -9,6 +10,7 @@ export class DeliverNotificationUseCase {
   constructor(
     private webhookClient: IWebhookClient,
     private notificationRepository: INotificationRepository,
+    private subscriptionRepository: ISubscriptionRepository,
     private retryPolicy: IRetryPolicy
   ) {}
 
@@ -16,8 +18,23 @@ export class DeliverNotificationUseCase {
     try {
       logger.info('Attempting to deliver notification', { eventId: notification.eventId });
 
+      // Buscar la suscripción para obtener el webhookUrl
+      const subscription = await this.subscriptionRepository.findByClientIdAndEventType(
+        notification.clientId,
+        notification.eventType.toString()
+      );
+
+      if (!subscription) {
+        logger.warn('No subscription found for notification', { 
+          eventId: notification.eventId,
+          clientId: notification.clientId,
+          eventType: notification.eventType.toString()
+        });
+        return;
+      }
+
       // Enviar al webhook
-      await this.webhookClient.send(notification.webhookUrl.toString(), {
+      await this.webhookClient.send(subscription.webhookUrl.toString(), {
         eventId: notification.eventId,
         eventType: notification.eventType.toString(),
         content: notification.content,

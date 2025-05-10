@@ -39,7 +39,7 @@ provider:
     NODE_ENV: ${self:provider.stage}
     STAGE: ${self:provider.stage}
     NOTIFICATIONS_TABLE: ${self:service}-${self:provider.stage}-notification_events
-    NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
+    NOTIFICATION_QUEUE_URL: !Ref NotificationQueueUrl
     NOTIFICATION_DLQ_URL: !Ref NotificationDeadLetterQueue
     DYNAMODB_TABLE: ${self:service}-${self:provider.stage}-notification_events
     SUBSCRIPTIONS_TABLE: ${self:service}-${self:provider.stage}-subscriptions
