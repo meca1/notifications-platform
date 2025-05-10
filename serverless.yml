@@ -5,31 +5,44 @@ frameworkVersion: '3'
 plugins:
   - serverless-esbuild
   - serverless-dotenv-plugin
-  - serverless-offline
-  - serverless-dynamodb-local
-  - serverless-localstack
+
+custom:
+  dotenv:
+    exclude:
+      - AWS_REGION
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_PROFILE
+      - CLOUD_ACCESS_KEY_ID
+      - CLOUD_SECRET_ACCESS_KEY
+    include:
+      - NODE_ENV
+      - STAGE
+      - DYNAMODB_TABLE
+      - NOTIFICATION_QUEUE_URL
+      - NOTIFICATION_DLQ_URL
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap: false
+    exclude: ['aws-sdk']
+    target: 'node18'
+    platform: 'node'
+    concurrency: 10
 
 provider:
   name: aws
   runtime: nodejs18.x
-  stage: ${opt:stage, 'dev'}
+  stage: ${opt:stage, 'prod'}
   region: ${opt:region, 'us-east-1'}
   environment:
     NODE_ENV: ${self:provider.stage}
-    AWS_REGION: ${self:provider.region}
-    DYNAMODB_ENDPOINT: ${self:custom.dynamodb.endpoint}
-    AWS_ACCESS_KEY_ID: ${self:custom.dynamodb.accessKeyId}
-    AWS_SECRET_ACCESS_KEY: ${self:custom.dynamodb.secretAccessKey}
     STAGE: ${self:provider.stage}
     NOTIFICATIONS_TABLE: ${self:service}-${self:provider.stage}-notification_events
     NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
     NOTIFICATION_DLQ_URL: !Ref NotificationDeadLetterQueue
     DYNAMODB_TABLE: ${self:service}-${self:provider.stage}-notification_events
-    CLOUD_REGION: ${self:provider.region}
-    STORAGE_ENDPOINT: ${env:STORAGE_ENDPOINT, ''}
-    SQS_ENDPOINT: ${env:SQS_ENDPOINT, ''}
-    CLOUD_ACCESS_KEY_ID: ${env:CLOUD_ACCESS_KEY_ID, ''}
-    CLOUD_SECRET_ACCESS_KEY: ${env:CLOUD_SECRET_ACCESS_KEY, ''}
+    SUBSCRIPTIONS_TABLE: ${self:service}-${self:provider.stage}-subscriptions
   iam:
     role:
       statements:
@@ -44,62 +57,22 @@ provider:
           Resource: 
             - !GetAtt NotificationEventsTable.Arn
             - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
-
-custom:
-  esbuild:
-    bundle: true
-    minify: false
-    sourcemap: true
-    exclude: ['aws-sdk']
-    target: 'node18'
-    platform: 'node'
-    concurrency: 10
-    watch:
-      pattern: ['src/**/*.ts']
-      ignore: ['.serverless/**/*', '.build/**/*']
-
-  serverless-offline:
-    httpPort: 4000
-    lambdaPort: 4002
-    useChildProcesses: true
-    noPrependStageInUrl: true
-    prefix: 'local'
-    authorizer:
-      name: localAuthorizer
-      type: token
-      identitySource: method.request.header.Authorization
-      resultTtlInSeconds: 0
-      identityValidationExpression: 'Bearer .*'
-    environment:
-      NODE_ENV: ${self:provider.stage}
-      AWS_REGION: ${self:provider.region}
-      DYNAMODB_ENDPOINT: ${self:custom.dynamodb.endpoint}
-      AWS_ACCESS_KEY_ID: ${self:custom.dynamodb.accessKeyId}
-      AWS_SECRET_ACCESS_KEY: ${self:custom.dynamodb.secretAccessKey}
-
-  dynamodb:
-    stages:
-      - dev
-      - local
-    start:
-      port: 8000
-      inMemory: true
-      migrate: true
-      seed: true
-      convertEmptyValues: true
-      docker: true
-    seed:
-      domain:
-        sources:
-          - table: notification_events
-            sources: [scripts/local/notifications_events_db.json]
-    endpoint: http://localhost:8000
-    accessKeyId: local
-    secretAccessKey: local
+            - !GetAtt SubscriptionsTable.Arn
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+            - sqs:ChangeMessageVisibility
+          Resource:
+            - !GetAtt NotificationQueue.Arn
+            - !GetAtt NotificationDeadLetterQueue.Arn
 
 resources:
   - ${file(resources/dynamodb.yml)}
   - ${file(resources/sqs.yml)}
+  - ${file(resources/subscriptions.yml)}
 
 functions:
   localAuthorizer:
@@ -151,16 +124,6 @@ functions:
             identitySource: method.request.header.Authorization
             resultTtlInSeconds: 0
             identityValidationExpression: 'Bearer .*'
-    iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - dynamodb:Query
-          - dynamodb:UpdateItem
-          - sqs:SendMessage
-        Resource: 
-          - !GetAtt NotificationEventsTable.Arn
-          - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
-          - !GetAtt NotificationQueue.Arn
 
   sendWebhook:
     handler: src/adapters/primary/handlers/webhooks/sendWebhook.handler
@@ -169,20 +132,6 @@ functions:
           arn: !GetAtt NotificationQueue.Arn
           batchSize: 1
           maximumBatchingWindow: 30
-    iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - dynamodb:Query
-          - dynamodb:UpdateItem
-          - sqs:ReceiveMessage
-          - sqs:DeleteMessage
-          - sqs:GetQueueAttributes
-          - sqs:ChangeMessageVisibility
-        Resource: 
-          - !GetAtt NotificationEventsTable.Arn
-          - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
-          - !GetAtt NotificationQueue.Arn
-          - !GetAtt NotificationDeadLetterQueue.Arn
 
   createSubscription:
     handler: src/adapters/primary/handlers/subscriptions/createSubscription.handler

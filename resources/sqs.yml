@@ -5,9 +5,6 @@ Resources:
       QueueName: ${self:service}-${self:provider.stage}-notification-dlq
       MessageRetentionPeriod: 1209600  # 14 days in seconds
       VisibilityTimeout: 30
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
-        maxReceiveCount: 3
 
   NotificationQueue:
     Type: AWS::SQS::Queue
