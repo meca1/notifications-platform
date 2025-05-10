@@ -1,7 +1,8 @@
 import { SQSClient, SendMessageCommand, ReceiveMessageCommand, DeleteMessageCommand } from '@aws-sdk/client-sqs';
 import { env } from '../../../config/env';
+import { IQueueClient } from '../../../core/ports/output/IQueueClient';
 
-export class QueueClient {
+export class QueueClient implements IQueueClient {
   private readonly client: SQSClient;
   private readonly queueUrl: string;
 
