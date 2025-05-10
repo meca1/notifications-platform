@@ -4,7 +4,6 @@ import { NotificationRepository } from '../../../secondary/repositories/Notifica
 import { HttpWebhookClient } from '../../../secondary/clients/httpWebhookClient'
 import { ExponentialBackoffRetryPolicy } from '../../../secondary/policies/ExponentialBackoffRetryPolicy';
 import { DeliverNotificationUseCase } from '../../../../application/useCases/notifications/DeliverNotificationUseCase';
-import { Notification } from '../../../../core/domain/models/Notification';
 import { logger } from '../../../../lib/logger';
 import { errorHandler } from '../../../../lib/errorHandler';
 import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
@@ -35,36 +34,14 @@ export const handler = async (event: SQSEvent) => {
       const message = JSON.parse(record.body);
       const { eventId, clientId, eventType } = message;
 
-      logger.info('Processing webhook message', { eventId, clientId, eventType });
-
-      // Verificar suscripción
-      const subscription = await subscriptionRepository.findByClientIdAndEventType(clientId, eventType);
-      if (!subscription || !subscription.isActive) {
-        logger.warn('No active subscription found', { clientId, eventType });
-        continue;
-      }
-
-      // Obtener notificación
-      let notification = await notificationRepository.findById(eventId);
+      // Obtener la notificación
+      const notification = await notificationRepository.findById(eventId);
       if (!notification) {
         logger.error('Notification not found', { eventId });
         continue;
       }
 
-      // Asegurar que la notificación tenga la URL del webhook de la suscripción
-      notification = new Notification(
-        notification.eventId,
-        notification.clientId,
-        notification.eventType,
-        notification.content,
-        notification.creationDate,
-        notification.deliveryDate,
-        notification.deliveryStatus,
-        notification.retryCount,
-        notification.errorMessage
-      );
-
-      // Ejecutar caso de uso para entrega
+      // Intentar entregar la notificación
       await deliverNotificationUseCase.execute(notification);
     }
   } catch (error) {

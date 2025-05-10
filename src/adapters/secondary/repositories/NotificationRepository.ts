@@ -111,7 +111,10 @@ export class NotificationRepository implements INotificationRepository {
       const item = NotificationMapper.toPersistence(notification);
       await this.storageClient.update({
         tableName: this.tableName,
-        key: { event_id: notification.eventId },
+        key: { 
+          client_id: notification.clientId,
+          event_id: notification.eventId 
+        },
         updateExpression: 'SET delivery_status = :status, delivery_date = :date, retry_count = :retries, error_message = :error',
         attributes: {
           ':status': item.delivery_status,

@@ -30,6 +30,10 @@ export class DeliverNotificationUseCase {
           clientId: notification.clientId,
           eventType: notification.eventType.toString()
         });
+        
+        // Marcar como fallida cuando no hay suscripción
+        notification.markAsFailed('No active subscription found for this event type');
+        await this.notificationRepository.update(notification);
         return;
       }
 
@@ -46,7 +50,7 @@ export class DeliverNotificationUseCase {
       await this.notificationRepository.update(notification);
 
       logger.info('Notification delivered successfully', { eventId: notification.eventId });
-    } catch (error: unknown) {
+    } catch (error) {
       logger.error('Failed to deliver notification', { eventId: notification.eventId, error });
 
       // Incrementar contador de reintentos
