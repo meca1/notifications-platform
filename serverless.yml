@@ -6,6 +6,8 @@ plugins:
   - serverless-esbuild
   - serverless-dotenv-plugin
   - serverless-offline
+  - serverless-dynamodb-local
+  - serverless-localstack
 
 provider:
   name: aws
@@ -17,6 +19,12 @@ provider:
     NOTIFICATIONS_TABLE: ${self:service}-${self:provider.stage}-notification_events
     NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
     NOTIFICATION_DLQ_URL: !Ref NotificationDeadLetterQueue
+    DYNAMODB_TABLE: ${self:service}-${self:provider.stage}-notification_events
+    CLOUD_REGION: ${self:provider.region}
+    STORAGE_ENDPOINT: ${env:STORAGE_ENDPOINT, ''}
+    SQS_ENDPOINT: ${env:SQS_ENDPOINT, ''}
+    CLOUD_ACCESS_KEY_ID: ${env:CLOUD_ACCESS_KEY_ID, ''}
+    CLOUD_SECRET_ACCESS_KEY: ${env:CLOUD_SECRET_ACCESS_KEY, ''}
 
 custom:
   esbuild:
@@ -106,4 +114,4 @@ functions:
           - !GetAtt NotificationEventsTable.Arn
           - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
           - !GetAtt NotificationQueue.Arn
-          - !GetAtt NotificationDeadLetterQueue.Arn 
+          - !GetAtt NotificationDeadLetterQueue.Arn
