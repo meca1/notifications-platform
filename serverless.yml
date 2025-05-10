@@ -183,9 +183,9 @@ functions:
           - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
           - !GetAtt NotificationQueue.Arn
           - !GetAtt NotificationDeadLetterQueue.Arn
-          
+
   createSubscription:
-    handler: src/adapters/primary/handlers/notifications/createSubscription.handler
+    handler: src/adapters/primary/handlers/subscriptions/createSubscription.handler
     events:
       - http:
           path: subscriptions
