@@ -10,31 +10,24 @@ import { errorHandler } from '../../../../lib/errorHandler';
 import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
 import { CloudStorageClient } from '../../../secondary/clients/storageClient';
 
-const notificationConfig: StorageConfig = {
+const storageConfig: StorageConfig = {
   region: process.env.AWS_REGION || 'us-east-1',
   endpoint: process.env.DYNAMODB_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  credentials: undefined // Dejar que AWS SDK use las credenciales del rol IAM
 };
 
-const subscriptionConfig: StorageConfig = {
-  region: process.env.AWS_REGION || 'us-east-1',
-  endpoint: process.env.DYNAMODB_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
-};
-
-const storageClient = new CloudStorageClient(notificationConfig);
-const subscriptionStorageClient = new CloudStorageClient(subscriptionConfig);
+const storageClient = new CloudStorageClient(storageConfig);
+const subscriptionStorageClient = new CloudStorageClient(storageConfig);
 const subscriptionRepository = new SubscriptionRepository(subscriptionStorageClient)
 const notificationRepository = new NotificationRepository(storageClient);
 const webhookClient = new HttpWebhookClient();
 const retryPolicy = new ExponentialBackoffRetryPolicy();
-const deliverNotificationUseCase = new DeliverNotificationUseCase(webhookClient, notificationRepository, retryPolicy);
+const deliverNotificationUseCase = new DeliverNotificationUseCase(
+  webhookClient,
+  notificationRepository,
+  subscriptionRepository,
+  retryPolicy
+);
 
 export const handler = async (event: SQSEvent) => {
   try {
@@ -67,7 +60,6 @@ export const handler = async (event: SQSEvent) => {
         notification.creationDate,
         notification.deliveryDate,
         notification.deliveryStatus,
-        subscription.webhookUrl, // Usar la URL de la suscripción
         notification.retryCount,
         notification.errorMessage
       );
