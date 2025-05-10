@@ -149,3 +149,11 @@ functions:
           path: notification_events
           method: post
           cors: true
+
+  mockWebhook:
+    handler: src/adapters/primary/handlers/webhooks/mockWebhook.handler
+    events:
+      - http:
+          path: webhook
+          method: post
+          cors: true
