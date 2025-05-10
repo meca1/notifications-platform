@@ -140,4 +140,3 @@ functions:
           path: subscriptions
           method: post
           cors: true
-          authorizer: aws_iam
