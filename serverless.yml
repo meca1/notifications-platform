@@ -15,6 +15,11 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
   environment:
+    NODE_ENV: ${self:provider.stage}
+    AWS_REGION: ${self:provider.region}
+    DYNAMODB_ENDPOINT: ${self:custom.dynamodb.endpoint}
+    AWS_ACCESS_KEY_ID: ${self:custom.dynamodb.accessKeyId}
+    AWS_SECRET_ACCESS_KEY: ${self:custom.dynamodb.secretAccessKey}
     STAGE: ${self:provider.stage}
     NOTIFICATIONS_TABLE: ${self:service}-${self:provider.stage}-notification_events
     NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
@@ -25,6 +30,20 @@ provider:
     SQS_ENDPOINT: ${env:SQS_ENDPOINT, ''}
     CLOUD_ACCESS_KEY_ID: ${env:CLOUD_ACCESS_KEY_ID, ''}
     CLOUD_SECRET_ACCESS_KEY: ${env:CLOUD_SECRET_ACCESS_KEY, ''}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: 
+            - !GetAtt NotificationEventsTable.Arn
+            - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
 
 custom:
   esbuild:
@@ -41,48 +60,97 @@ custom:
 
   serverless-offline:
     httpPort: 4000
+    lambdaPort: 4002
     useChildProcesses: true
+    noPrependStageInUrl: true
+    prefix: 'local'
+    authorizer:
+      name: localAuthorizer
+      type: token
+      identitySource: method.request.header.Authorization
+      resultTtlInSeconds: 0
+      identityValidationExpression: 'Bearer .*'
+    environment:
+      NODE_ENV: ${self:provider.stage}
+      AWS_REGION: ${self:provider.region}
+      DYNAMODB_ENDPOINT: ${self:custom.dynamodb.endpoint}
+      AWS_ACCESS_KEY_ID: ${self:custom.dynamodb.accessKeyId}
+      AWS_SECRET_ACCESS_KEY: ${self:custom.dynamodb.secretAccessKey}
+
+  dynamodb:
+    stages:
+      - dev
+      - local
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+      seed: true
+      convertEmptyValues: true
+      docker: true
+    seed:
+      domain:
+        sources:
+          - table: notification_events
+            sources: [scripts/local/notifications_events_db.json]
+    endpoint: http://localhost:8000
+    accessKeyId: local
+    secretAccessKey: local
 
 resources:
   - ${file(resources/dynamodb.yml)}
   - ${file(resources/sqs.yml)}
 
 functions:
+  localAuthorizer:
+    handler: src/adapters/primary/handlers/auth/localAuthorizer.handler
+    events:
+      - http:
+          path: /auth
+          method: post
+          cors: true
+
   getNotifications:
     handler: src/adapters/primary/handlers/notifications/getNotifications.handler
     events:
       - http:
-          path: notification_events
+          path: /notification_events
           method: get
-    iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - dynamodb:Query
-          - dynamodb:Scan
-        Resource: 
-          - !GetAtt NotificationEventsTable.Arn
-          - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
+          cors: true
+          authorizer:
+            name: localAuthorizer
+            type: token
+            identitySource: method.request.header.Authorization
+            resultTtlInSeconds: 0
+            identityValidationExpression: 'Bearer .*'
 
   getNotificationById:
     handler: src/adapters/primary/handlers/notifications/getNotificationById.handler
     events:
       - http:
-          path: notification_events/{id}
+          path: /notification_events/{id}
           method: get
-    iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - dynamodb:Query
-        Resource: 
-          - !GetAtt NotificationEventsTable.Arn
-          - !Join ['', [!GetAtt NotificationEventsTable.Arn, '/index/*']]
+          cors: true
+          authorizer:
+            name: localAuthorizer
+            type: token
+            identitySource: method.request.header.Authorization
+            resultTtlInSeconds: 0
+            identityValidationExpression: 'Bearer .*'
 
   replayNotification:
     handler: src/adapters/primary/handlers/notifications/replayNotification.handler
     events:
       - http:
-          path: notification_events/{id}/replay
+          path: /notification_events/{id}/replay
           method: post
+          cors: true
+          authorizer:
+            name: localAuthorizer
+            type: token
+            identitySource: method.request.header.Authorization
+            resultTtlInSeconds: 0
+            identityValidationExpression: 'Bearer .*'
     iamRoleStatements:
       - Effect: Allow
         Action:
