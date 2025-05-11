@@ -10,7 +10,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: ${self:service}-${self:provider.stage}-notification-queue
-      VisibilityTimeout: 30
+      VisibilityTimeout: 10
       MessageRetentionPeriod: 345600  # 4 days in seconds
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
