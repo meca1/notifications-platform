@@ -9,7 +9,7 @@ export const handler = async (event: APIGatewayTokenAuthorizerEvent): Promise<AP
     const secret = process.env.JWT_SECRET || 'your-secret-key';
 
     const decoded = jwt.verify(token, secret) as {
-      clientId: string;
+      sub: string;           // Subject (client identifier)
       role?: Role;
       permissions?: string[];
       metadata?: Record<string, any>;
@@ -20,7 +20,7 @@ export const handler = async (event: APIGatewayTokenAuthorizerEvent): Promise<AP
       (decoded.role ? RolePermissions[decoded.role] : []);
 
     return {
-      principalId: decoded.clientId,
+      principalId: decoded.sub,  // Use sub as the principal identifier
       policyDocument: {
         Version: '2012-10-17',
         Statement: [
@@ -32,7 +32,7 @@ export const handler = async (event: APIGatewayTokenAuthorizerEvent): Promise<AP
         ],
       },
       context: {
-        clientId: decoded.clientId,
+        clientId: decoded.sub,   // Use sub as clientId in context
         role: decoded.role || 'client',
         permissions: JSON.stringify(permissions),
         metadata: JSON.stringify(decoded.metadata || {}),

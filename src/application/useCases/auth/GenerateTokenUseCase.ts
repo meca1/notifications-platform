@@ -24,12 +24,13 @@ export class GenerateTokenUseCase implements IGenerateTokenUseCase {
         (role ? RolePermissions[role] : []);
 
       const payload = {
-        sub: clientId,
-        clientId,
+        // Standard JWT claims
+        sub: clientId,                    // Subject (client identifier)
+        iat: Math.floor(Date.now() / 1000), // Issued at
+        // Custom claims
         role,
         permissions: effectivePermissions,
-        metadata: metadata || {},
-        iat: Math.floor(Date.now() / 1000),
+        metadata: metadata || {}
       };
 
       const options: SignOptions = {
