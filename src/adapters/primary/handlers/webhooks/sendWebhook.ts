@@ -32,10 +32,10 @@ export const handler = async (event: SQSEvent) => {
   try {
     for (const record of event.Records) {
       const message = JSON.parse(record.body);
-      const { eventId, clientId, eventType } = message;
+      const { eventId } = message;
 
       // Obtener la notificación
-      const notification = await notificationRepository.findById(eventId);
+      const notification = await notificationRepository.findByEventId(eventId);
       if (!notification) {
         logger.error('Notification not found', { eventId });
         continue;

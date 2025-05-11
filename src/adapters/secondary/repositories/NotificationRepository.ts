@@ -15,22 +15,22 @@ export class NotificationRepository implements INotificationRepository {
     this.tableName = process.env.NOTIFICATIONS_TABLE || 'notification_events';
   }
 
-  async findById(id: string): Promise<Notification> {
+  async findByEventId(eventId: string): Promise<Notification> {
     try {
       const result = await this.storageClient.query<Notification>({
         tableName: this.tableName,
         indexName: 'EventIdIndex',
         keyCondition: 'event_id = :event_id',
-        attributes: { ':event_id': id }
+        attributes: { ':event_id': eventId }
       });
 
       if (!result.items || result.items.length === 0) {
-        throw new NotificationNotFoundException(`Notification with id ${id} not found`);
+        throw new NotificationNotFoundException(`Notification with event ID ${eventId} not found`);
       }
 
       return NotificationMapper.toDomain(result.items[0]);
     } catch (error) {
-      logger.error('Error finding notification by ID', { id, error });
+      logger.error('Error finding notification by event ID', { eventId, error });
       throw error;
     }
   }

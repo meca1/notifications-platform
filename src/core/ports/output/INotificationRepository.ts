@@ -9,7 +9,7 @@ export interface NotificationFilters {
 }
 
 export interface INotificationRepository {
-  findById(id: string): Promise<Notification>;
+  findByEventId(eventId: string): Promise<Notification>;
   findByClientId(clientId: string, filters?: Partial<NotificationFilters>): Promise<Notification[]>;
   save(notification: Notification): Promise<void>;
   update(notification: Notification): Promise<void>;

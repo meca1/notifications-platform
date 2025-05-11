@@ -9,13 +9,12 @@ import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
 import { UnauthorizedError } from '../../../../lib/errorHandler';
 
 // Configuración del cliente de almacenamiento
+const region = process.env.AWS_REGION || 'us-east-1';
+const endpoint = process.env.DYNAMODB_ENDPOINT;
+
 const storageConfig: StorageConfig = {
-  region: process.env.AWS_REGION || 'us-east-1',
-  endpoint: process.env.DYNAMODB_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  region,
+  endpoint,
 };
 
 // Inyección de dependencias
@@ -25,40 +24,51 @@ const getNotificationUseCase = new GetNotificationUseCase(notificationRepository
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('Getting notification by ID', { 
-      event,
-      requestContext: event.requestContext,
-      authorizer: event.requestContext.authorizer
-    });
-    
-    const notificationId = event.pathParameters?.id;
-    if (!notificationId) {
+    const eventId = event.pathParameters?.id;
+    if (!eventId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: 'Notification ID is required' })
+        body: JSON.stringify({ 
+          message: 'Notification ID is required',
+          error: 'VALIDATION_ERROR'
+        })
       };
+    }
+
+    // Obtener y validar el token de autorización
+    const authHeader = event.headers.Authorization || event.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedError('Valid Bearer token is required');
     }
 
     // Obtener clientId del contexto del autorizador
     const clientId = event.requestContext.authorizer?.clientId || event.requestContext.authorizer?.sub;
-    logger.info('Extracted client ID from authorizer', { clientId });
-    
-    if (!clientId) {
-      logger.error('Client ID not found in authorizer context', {
-        authorizer: event.requestContext.authorizer
-      });
-      throw new UnauthorizedError('Client ID is required');
+    if (!clientId || clientId === 'YOUR_AUTH_TOKEN') {
+      throw new UnauthorizedError('Valid client ID is required');
     }
     
-    const notification = await getNotificationUseCase.execute(notificationId, clientId);
+    logger.info('Getting notification', { 
+      eventId,
+      clientId,
+      authHeader: authHeader.substring(0, 10) + '...' // Solo logueamos parte del token por seguridad
+    });
+
+    const notification = await getNotificationUseCase.execute(eventId, clientId);
     const notificationDto = NotificationMapper.toDto(notification);
     
     return {
       statusCode: 200,
-      body: JSON.stringify(notificationDto)
+      body: JSON.stringify({
+        data: notificationDto
+      })
     };
   } catch (error) {
-    logger.error('Error getting notification by ID', { error });
+    logger.error('Error getting notification', { 
+      error,
+      eventId: event.pathParameters?.id,
+      clientId: event.requestContext.authorizer?.clientId,
+      authHeader: event.headers.Authorization ? 'Bearer ...' : 'missing'
+    });
     return errorHandler(error as Error);
   }
 };
