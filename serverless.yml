@@ -8,13 +8,6 @@ plugins:
 
 custom:
   dotenv:
-    exclude:
-      - AWS_REGION
-      - AWS_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY
-      - AWS_PROFILE
-      - CLOUD_ACCESS_KEY_ID
-      - CLOUD_SECRET_ACCESS_KEY
     include:
       - NODE_ENV
       - STAGE
@@ -30,6 +23,9 @@ custom:
     target: 'node18'
     platform: 'node'
     concurrency: 10
+  apiGatewayThrottling:
+    rateLimit: 1000
+    burstLimit: 500
 
 provider:
   name: aws
@@ -44,10 +40,7 @@ provider:
     NOTIFICATION_DLQ_URL: !Ref NotificationDeadLetterQueue
     DYNAMODB_TABLE: ${self:service}-${self:provider.stage}-notification_events
     SUBSCRIPTIONS_TABLE: ${self:service}-${self:provider.stage}-subscriptions
-  httpApi:
-    throttling:
-      rateLimit: 100
-      burstLimit: 50
+
   iam:
     role:
       statements:
