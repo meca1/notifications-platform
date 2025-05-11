@@ -117,15 +117,12 @@ functions:
     handler: src/adapters/primary/handlers/notifications/replayNotification.handler
     events:
       - http:
-          path: /notification_events/{id}/replay
+          path: notification_events/{id}/replay
           method: post
           cors: true
           authorizer:
             name: localAuthorizer
             type: token
-            identitySource: method.request.header.Authorization
-            resultTtlInSeconds: 0
-            identityValidationExpression: 'Bearer .*'
 
   sendWebhook:
     handler: src/adapters/primary/handlers/webhooks/sendWebhook.handler
