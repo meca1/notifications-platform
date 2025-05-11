@@ -30,12 +30,4 @@ export class Notification {
   incrementRetryCount(): void {
     this.retryCount += 1;
   }
-
-  canBeRetried(): boolean {
-    return this.deliveryStatus === DeliveryStatus.FAILED && this.retryCount < 3;
-  }
-
-  getMaxRetries(): number {
-    return Notification.MAX_RETRIES;
-  }
 }
