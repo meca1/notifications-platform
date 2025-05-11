@@ -44,6 +44,10 @@ provider:
     NOTIFICATION_DLQ_URL: !Ref NotificationDeadLetterQueue
     DYNAMODB_TABLE: ${self:service}-${self:provider.stage}-notification_events
     SUBSCRIPTIONS_TABLE: ${self:service}-${self:provider.stage}-subscriptions
+  httpApi:
+    throttling:
+      rateLimit: 100
+      burstLimit: 50
   iam:
     role:
       statements:
