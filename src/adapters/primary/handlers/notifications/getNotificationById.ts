@@ -7,6 +7,7 @@ import { logger } from '../../../../lib/logger';
 import { CloudStorageClient } from '../../../secondary/clients/storageClient';
 import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
 import { UnauthorizedError } from '../../../../lib/errorHandler';
+import { GetNotificationParamsSchema } from '../../schemas/notificationSchema';
 
 // Configuración del cliente de almacenamiento
 const region = process.env.AWS_REGION || 'us-east-1';
@@ -24,16 +25,20 @@ const getNotificationUseCase = new GetNotificationUseCase(notificationRepository
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const eventId = event.pathParameters?.id;
-    if (!eventId) {
+    // Validar parámetros de la ruta
+    const paramsValidation = GetNotificationParamsSchema.safeParse(event.pathParameters);
+    
+    if (!paramsValidation.success) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ 
-          message: 'Notification ID is required',
-          error: 'VALIDATION_ERROR'
-        })
+        body: JSON.stringify({
+          message: 'Invalid path parameters',
+          errors: paramsValidation.error.errors,
+        }),
       };
     }
+
+    const { id: eventId } = paramsValidation.data;
 
     // Obtener y validar el token de autorización
     const authHeader = event.headers.Authorization || event.headers.authorization;

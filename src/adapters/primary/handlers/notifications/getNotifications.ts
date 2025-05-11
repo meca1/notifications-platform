@@ -8,8 +8,7 @@ import { logger } from '../../../../lib/logger';
 import { CloudStorageClient } from '../../../secondary/clients/storageClient';
 import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
 import { Notification } from '../../../../core/domain/models/Notification';
-import { DeliveryStatus } from '../../../../core/domain/valueObjects/DeliveryStatus';
-import { ValidationError } from '../../../../lib/errorHandler';
+import { GetNotificationsQuerySchema } from '../../schemas/notificationSchema';
 
 // Configuración del cliente de almacenamiento
 const region = process.env.AWS_REGION || 'us-east-1';
@@ -25,62 +24,6 @@ const storageClient = new CloudStorageClient(storageConfig);
 const notificationRepository = new NotificationRepository(storageClient);
 const getNotificationsUseCase = new GetNotificationsUseCase(notificationRepository);
 
-// Validación de parámetros
-function validateQueryParameters(params: { [key: string]: string | undefined }): {
-  clientId: string;
-  status?: DeliveryStatus;
-  fromDate?: Date;
-  toDate?: Date;
-} {
-  const { clientId, status, fromDate, toDate } = params;
-
-  if (!clientId) {
-    throw new ValidationError('Client ID is required');
-  }
-
-  let validatedStatus: DeliveryStatus | undefined;
-  if (status) {
-    if (!Object.values(DeliveryStatus).includes(status as DeliveryStatus)) {
-      throw new ValidationError(
-        `Invalid status. Valid values are: ${Object.values(DeliveryStatus).join(', ')}`
-      );
-    }
-    validatedStatus = status as DeliveryStatus;
-  }
-
-  const validatedFromDate = fromDate ? validateAndParseDate(fromDate, 'fromDate') : undefined;
-  const validatedToDate = toDate ? validateAndParseDate(toDate, 'toDate') : undefined;
-
-  // Validar que fromDate no sea posterior a toDate
-  if (validatedFromDate && validatedToDate && validatedFromDate > validatedToDate) {
-    throw new ValidationError('fromDate cannot be later than toDate');
-  }
-
-  // Validar que las fechas no sean futuras
-  const now = new Date();
-  if (validatedFromDate && validatedFromDate > now) {
-    throw new ValidationError('fromDate cannot be in the future');
-  }
-  if (validatedToDate && validatedToDate > now) {
-    throw new ValidationError('toDate cannot be in the future');
-  }
-
-  return {
-    clientId,
-    status: validatedStatus,
-    fromDate: validatedFromDate,
-    toDate: validatedToDate
-  };
-}
-
-function validateAndParseDate(dateStr: string, paramName: string): Date {
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) {
-    throw new ValidationError(`Invalid ${paramName} format. Use ISO 8601 format.`);
-  }
-  return date;
-}
-
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     logger.info('Getting notifications', { 
@@ -90,21 +33,34 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       region: process.env.CLOUD_REGION
     });
     
-    const validatedParams = validateQueryParameters(event.queryStringParameters || {});
+    // Validar parámetros de consulta
+    const validationResult = GetNotificationsQuerySchema.safeParse(event.queryStringParameters || {});
     
-    const notifications = await getNotificationsUseCase.execute(validatedParams.clientId, {
-      status: validatedParams.status,
-      fromDate: validatedParams.fromDate,
-      toDate: validatedParams.toDate
+    if (!validationResult.success) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Invalid query parameters',
+          errors: validationResult.error.errors,
+        }),
+      };
+    }
+
+    const { clientId, status, fromDate, toDate } = validationResult.data;
+    
+    const notifications = await getNotificationsUseCase.execute(clientId, {
+      status,
+      fromDate: fromDate ? new Date(fromDate) : undefined,
+      toDate: toDate ? new Date(toDate) : undefined
     });
 
     logger.info('Notifications retrieved successfully', {
       count: notifications.length,
-      clientId: validatedParams.clientId,
+      clientId,
       filters: {
-        status: validatedParams.status,
-        fromDate: validatedParams.fromDate?.toISOString(),
-        toDate: validatedParams.toDate?.toISOString()
+        status,
+        fromDate,
+        toDate
       }
     });
 
