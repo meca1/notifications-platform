@@ -80,11 +80,7 @@ resources:
 functions:
   tokenAuthorizer:
     handler: src/adapters/primary/handlers/auth/tokenAuthorizer.handler
-    events:
-      - http:
-          path: /auth
-          method: post
-          cors: true
+    events: []
 
   generateToken:
     handler: src/adapters/primary/handlers/auth/generateToken.handler
