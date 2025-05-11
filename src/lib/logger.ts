@@ -1,5 +1,3 @@
-// Winston + CloudWatch logging configuration 
-
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 interface LogEntry {
