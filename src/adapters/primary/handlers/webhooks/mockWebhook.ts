@@ -1,13 +1,34 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { logger } from '../../../../lib/logger';
+import { WebhookPayloadSchema } from '../../schemas/webhookSchema';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const body = JSON.parse(event.body || '{}');
+    const rawBody = JSON.parse(event.body || '{}');
+    
+    // Validar el payload del webhook
+    const validationResult = WebhookPayloadSchema.safeParse(rawBody);
+    
+    if (!validationResult.success) {
+      logger.error('Invalid webhook payload', {
+        errors: validationResult.error.errors,
+        rawBody
+      });
+      
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Invalid webhook payload',
+          errors: validationResult.error.errors
+        })
+      };
+    }
+
+    const payload = validationResult.data;
     
     logger.info('Received webhook notification', {
       headers: event.headers,
-      body,
+      payload,
       requestContext: event.requestContext
     });
 
@@ -15,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const shouldFail = process.env.MOCK_WEBHOOK_SHOULD_FAIL === 'true';
     if (shouldFail) {
       logger.info('Simulating webhook failure', { 
-        eventId: body.eventId,
+        eventId: payload.eventId,
         reason: 'MOCK_WEBHOOK_SHOULD_FAIL is set to true'
       });
       
@@ -25,7 +46,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           message: 'Simulated webhook failure',
           error: 'MOCK_WEBHOOK_SHOULD_FAIL is set to true',
           receivedAt: new Date().toISOString(),
-          data: body
+          data: payload
         })
       };
     }
@@ -35,7 +56,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify({
         message: 'Webhook received successfully',
         receivedAt: new Date().toISOString(),
-        data: body
+        data: payload
       })
     };
   } catch (error) {

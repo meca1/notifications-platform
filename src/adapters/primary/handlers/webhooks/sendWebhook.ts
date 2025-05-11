@@ -7,6 +7,7 @@ import { logger } from '../../../../lib/logger';
 import { errorHandler } from '../../../../lib/errorHandler';
 import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
 import { CloudStorageClient } from '../../../secondary/clients/storageClient';
+import { WebhookMessageSchema } from '../../schemas/webhookSchema';
 
 const storageConfig: StorageConfig = {
   region: process.env.AWS_REGION || 'us-east-1',
@@ -28,8 +29,20 @@ const deliverNotificationUseCase = new DeliverNotificationUseCase(
 export const handler = async (event: SQSEvent) => {
   try {
     for (const record of event.Records) {
-      const message = JSON.parse(record.body);
-      const { eventId } = message;
+      const rawMessage = JSON.parse(record.body);
+      
+      // Validar el mensaje SQS
+      const validationResult = WebhookMessageSchema.safeParse(rawMessage);
+      
+      if (!validationResult.success) {
+        logger.error('Invalid SQS message format', { 
+          errors: validationResult.error.errors,
+          rawMessage 
+        });
+        continue;
+      }
+
+      const { eventId } = validationResult.data;
 
       // Obtener la notificación
       const notification = await notificationRepository.findByEventId(eventId);
