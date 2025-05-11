@@ -10,6 +10,7 @@ import { StorageConfig } from '../../../../core/ports/output/IStorageConfig';
 import { UnauthorizedError } from '../../../../lib/errorHandler';
 import { QueueClient } from '../../../secondary/clients/queueClient';
 import { env } from '../../../../config/env';
+import { ReplayNotificationParamsSchema, AuthHeaderSchema } from '../../schemas/notificationSchema';
 
 // Configuración del cliente de almacenamiento
 const region = process.env.AWS_REGION || 'us-east-1';
@@ -31,20 +32,25 @@ const replayNotificationUseCase = new ReplayNotificationUseCase(
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const eventId = event.pathParameters?.id;
-    if (!eventId) {
+    // Validar parámetros de la ruta
+    const paramsValidation = ReplayNotificationParamsSchema.safeParse(event.pathParameters);
+    
+    if (!paramsValidation.success) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ 
-          message: 'Notification ID is required',
-          error: 'VALIDATION_ERROR'
-        })
+        body: JSON.stringify({
+          message: 'Invalid path parameters',
+          errors: paramsValidation.error.errors,
+        }),
       };
     }
 
-    // Obtener y validar el token de autorización
-    const authHeader = event.headers.Authorization || event.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const { id: eventId } = paramsValidation.data;
+
+    // Validar headers de autorización
+    const authValidation = AuthHeaderSchema.safeParse(event.headers);
+    
+    if (!authValidation.success) {
       throw new UnauthorizedError('Valid Bearer token is required');
     }
 
@@ -53,6 +59,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!clientId || clientId === 'YOUR_AUTH_TOKEN') {
       throw new UnauthorizedError('Valid client ID is required');
     }
+    
+    // Obtener el token de autorización de manera segura
+    const authHeader = 'Authorization' in authValidation.data 
+      ? authValidation.data.Authorization 
+      : authValidation.data.authorization;
     
     logger.info('Replaying notification', { 
       eventId,

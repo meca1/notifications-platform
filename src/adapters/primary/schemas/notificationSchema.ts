@@ -44,6 +44,24 @@ export const GetNotificationsQuerySchema = z.object({
   return new Date(data.fromDate) <= new Date(data.toDate);
 }, 'fromDate cannot be later than toDate');
 
+export const ReplayNotificationParamsSchema = z.object({
+  id: z.string().min(1, 'Notification ID is required'),
+});
+
+export const AuthHeaderSchema = z.object({
+  Authorization: z.string().refine(
+    (val) => val.startsWith('Bearer '),
+    'Valid Bearer token is required'
+  ),
+}).or(z.object({
+  authorization: z.string().refine(
+    (val) => val.startsWith('Bearer '),
+    'Valid Bearer token is required'
+  ),
+}));
+
 export type CreateNotificationInput = z.infer<typeof CreateNotificationSchema>;
 export type GetNotificationParams = z.infer<typeof GetNotificationParamsSchema>;
-export type GetNotificationsQuery = z.infer<typeof GetNotificationsQuerySchema>; 
+export type GetNotificationsQuery = z.infer<typeof GetNotificationsQuerySchema>;
+export type ReplayNotificationParams = z.infer<typeof ReplayNotificationParamsSchema>;
+export type AuthHeader = z.infer<typeof AuthHeaderSchema>; 
