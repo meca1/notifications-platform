@@ -15,6 +15,8 @@ custom:
       - NOTIFICATION_QUEUE_URL
       - NOTIFICATION_DLQ_URL
       - MOCK_WEBHOOK_SHOULD_FAIL
+      - JWT_SECRET
+      - JWT_EXPIRES_IN
   esbuild:
     bundle: true
     minify: true
@@ -40,6 +42,8 @@ provider:
     NOTIFICATION_DLQ_URL: !Ref NotificationDeadLetterQueue
     DYNAMODB_TABLE: ${self:service}-${self:provider.stage}-notification_events
     SUBSCRIPTIONS_TABLE: ${self:service}-${self:provider.stage}-subscriptions
+    JWT_SECRET: ${env:JWT_SECRET, 'your-secret-key'}
+    JWT_EXPIRES_IN: ${env:JWT_EXPIRES_IN, '1h'}
 
   iam:
     role:
@@ -74,11 +78,19 @@ resources:
   - ${file(resources/subscriptions.yml)}
 
 functions:
-  localAuthorizer:
-    handler: src/adapters/primary/handlers/auth/localAuthorizer.handler
+  tokenAuthorizer:
+    handler: src/adapters/primary/handlers/auth/tokenAuthorizer.handler
     events:
       - http:
           path: /auth
+          method: post
+          cors: true
+
+  generateToken:
+    handler: src/adapters/primary/handlers/auth/generateToken.handler
+    events:
+      - http:
+          path: /auth/token
           method: post
           cors: true
 
@@ -90,7 +102,7 @@ functions:
           method: get
           cors: true
           authorizer:
-            name: localAuthorizer
+            name: tokenAuthorizer
             type: token
             identitySource: method.request.header.Authorization
             resultTtlInSeconds: 0
@@ -104,7 +116,7 @@ functions:
           method: get
           cors: true
           authorizer:
-            name: localAuthorizer
+            name: tokenAuthorizer
             type: token
             identitySource: method.request.header.Authorization
             resultTtlInSeconds: 0
@@ -118,7 +130,7 @@ functions:
           method: post
           cors: true
           authorizer:
-            name: localAuthorizer
+            name: tokenAuthorizer
             type: token
 
   sendWebhook:
