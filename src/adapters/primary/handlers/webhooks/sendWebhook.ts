@@ -2,7 +2,6 @@ import { SQSEvent } from 'aws-lambda';
 import { SubscriptionRepository } from '../../../secondary/repositories/SubscriptionRepository';
 import { NotificationRepository } from '../../../secondary/repositories/NotificationRepository';
 import { HttpWebhookClient } from '../../../secondary/clients/httpWebhookClient'
-import { ExponentialBackoffRetryPolicy } from '../../../secondary/policies/ExponentialBackoffRetryPolicy';
 import { DeliverNotificationUseCase } from '../../../../application/useCases/notifications/DeliverNotificationUseCase';
 import { logger } from '../../../../lib/logger';
 import { errorHandler } from '../../../../lib/errorHandler';
@@ -20,12 +19,10 @@ const subscriptionStorageClient = new CloudStorageClient(storageConfig);
 const subscriptionRepository = new SubscriptionRepository(subscriptionStorageClient)
 const notificationRepository = new NotificationRepository(storageClient);
 const webhookClient = new HttpWebhookClient();
-const retryPolicy = new ExponentialBackoffRetryPolicy();
 const deliverNotificationUseCase = new DeliverNotificationUseCase(
   webhookClient,
   notificationRepository,
-  subscriptionRepository,
-  retryPolicy
+  subscriptionRepository
 );
 
 export const handler = async (event: SQSEvent) => {

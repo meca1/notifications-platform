@@ -2,7 +2,6 @@ import { Notification } from '../../../core/domain/models/Notification';
 import { IWebhookClient } from '../../../core/ports/output/IWebhookClient';
 import { INotificationRepository } from '../../../core/ports/output/INotificationRepository';
 import { ISubscriptionRepository } from '../../../core/ports/output/ISubscriptionRepository';
-import { IRetryPolicy } from '../../../core/ports/output/IRetryPolicy';
 import { DeliveryFailedException } from '../../../core/domain/exceptions/DeliveryFailedException';
 import { logger } from '../../../lib/logger';
 
@@ -10,8 +9,7 @@ export class DeliverNotificationUseCase {
   constructor(
     private webhookClient: IWebhookClient,
     private notificationRepository: INotificationRepository,
-    private subscriptionRepository: ISubscriptionRepository,
-    private retryPolicy: IRetryPolicy
+    private subscriptionRepository: ISubscriptionRepository
   ) {}
 
   async execute(notification: Notification): Promise<void> {
