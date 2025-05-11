@@ -5,6 +5,11 @@ import { Role, RolePermissions } from '../../../../core/domain/constants/roles';
 
 export const handler = async (event: APIGatewayTokenAuthorizerEvent): Promise<APIGatewayAuthorizerResult> => {
   try {
+    logger.info('Authorizing request', {
+      methodArn: event.methodArn,
+      type: event.type
+    });
+
     const token = event.authorizationToken.replace('Bearer ', '');
     const secret = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -18,6 +23,12 @@ export const handler = async (event: APIGatewayTokenAuthorizerEvent): Promise<AP
     // Get permissions based on role if not explicitly provided
     const permissions = decoded.permissions || 
       (decoded.role ? RolePermissions[decoded.role] : []);
+
+    logger.info('Token decoded successfully', {
+      clientId: decoded.sub,
+      role: decoded.role,
+      permissions
+    });
 
     return {
       principalId: decoded.sub,  // Use sub as the principal identifier

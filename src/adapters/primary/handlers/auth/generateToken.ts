@@ -20,9 +20,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
-    const { clientId, permissions, metadata } = validationResult.data;
+    const { clientId, role, permissions, metadata } = validationResult.data;
 
-    const token = await generateTokenUseCase.execute(clientId, permissions, metadata);
+    const token = await generateTokenUseCase.execute(clientId, permissions, metadata, role);
 
     return {
       statusCode: 200,

@@ -9,7 +9,17 @@ export const CreateNotificationSchema = z.object({
 });
 
 export const GetNotificationParamsSchema = z.object({
-  id: z.string().min(1, 'Notification ID is required'),
+  id: z.string()
+    .min(1, 'Notification ID is required')
+    .refine(
+      (id) => {
+        // Acepta UUIDs o IDs con formato EVT seguido de números
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const evtRegex = /^EVT\d+$/;
+        return uuidRegex.test(id) || evtRegex.test(id);
+      },
+      'Notification ID must be a valid UUID or start with EVT followed by numbers'
+    ),
 });
 
 export const GetNotificationsQuerySchema = z.object({
