@@ -3,6 +3,7 @@ import { CreateSubscriptionUseCase } from '../../../../application/useCases/subs
 import { SubscriptionRepository } from '../../../secondary/repositories/SubscriptionRepository';
 import { CloudStorageClient } from '../../../secondary/clients/storageClient';
 import { logger } from '../../../../lib/logger';
+import { CreateSubscriptionSchema } from '../../schemas/subscriptionSchema';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -17,16 +18,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const subscriptionRepository = new SubscriptionRepository(storageClient);
     const createSubscriptionUseCase = new CreateSubscriptionUseCase(subscriptionRepository);
 
-    const { clientId, eventType, webhookUrl } = JSON.parse(event.body || '{}');
-
-    if (!clientId || !eventType || !webhookUrl) {
+    const rawInput = JSON.parse(event.body || '{}');
+    
+    const validationResult = CreateSubscriptionSchema.safeParse(rawInput);
+    
+    if (!validationResult.success) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: 'Missing required fields: clientId, eventType, webhookUrl',
+          message: 'Invalid input',
+          errors: validationResult.error.errors,
         }),
       };
     }
+
+    const { clientId, eventType, webhookUrl } = validationResult.data;
 
     const subscription = await createSubscriptionUseCase.execute(clientId, eventType, webhookUrl);
 
@@ -35,7 +41,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify(subscription),
     };
   } catch (error) {
-    const { clientId, eventType, webhookUrl } = JSON.parse(event.body || '{}');
+    const rawInput = JSON.parse(event.body || '{}');
     
     logger.error('Error creating subscription', { 
       error: error instanceof Error ? {
@@ -43,9 +49,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         name: error.name,
         stack: error.stack
       } : error,
-      clientId,
-      eventType,
-      webhookUrl
+      input: rawInput
     });
     
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
