@@ -5,7 +5,6 @@ import { ICreateNotificationUseCase } from '../../../core/ports/input/ICreateNot
 import { INotificationRepository } from '../../../core/ports/output/INotificationRepository';
 import { IQueueClient } from '../../../core/ports/output/IQueueClient';
 import { logger } from '../../../lib/logger';
-import { v4 as uuidv4 } from 'uuid';
 
 export class CreateNotificationUseCase implements ICreateNotificationUseCase {
   constructor(
@@ -13,14 +12,14 @@ export class CreateNotificationUseCase implements ICreateNotificationUseCase {
     private queueClient: IQueueClient
   ) {}
 
-  async execute(clientId: string, eventType: string, content: string): Promise<Notification> {
+  async execute(clientId: string, eventId: string, eventType: string, content: string): Promise<Notification> {
     try {
       // Validate event type
       const validatedEventType = EventType.create(eventType);
 
-      // Create notification with unique ID
+      // Create notification with provided event ID
       const notification = new Notification(
-        uuidv4(),
+        eventId,
         clientId,
         validatedEventType,
         content,
@@ -48,7 +47,7 @@ export class CreateNotificationUseCase implements ICreateNotificationUseCase {
       
       return notification;
     } catch (error) {
-      logger.error('Error creating notification', { client_id: clientId, event_type: eventType, error });
+      logger.error('Error creating notification', { client_id: clientId, event_type: eventType, event_id: eventId, error });
       throw error;
     }
   }

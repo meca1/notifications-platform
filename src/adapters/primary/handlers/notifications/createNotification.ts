@@ -5,6 +5,7 @@ import { CloudStorageClient } from '../../../secondary/clients/storageClient';
 import { QueueClient } from '../../../secondary/clients/queueClient';
 import { logger } from '../../../../lib/logger';
 import { env } from '../../../../config/env';
+import { CreateNotificationSchema } from '../../schemas/notificationSchema';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -21,34 +22,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const notificationRepository = new NotificationRepository(storageClient);
     const createNotificationUseCase = new CreateNotificationUseCase(notificationRepository, queueClient);
 
-    const { client_id, event_type, content } = JSON.parse(event.body || '{}');
-
-    if (!client_id || !event_type || !content) {
+    const rawInput = JSON.parse(event.body || '{}');
+    
+    const validationResult = CreateNotificationSchema.safeParse(rawInput);
+    
+    if (!validationResult.success) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: 'Missing required fields: client_id, event_type, content',
+          message: 'Invalid input',
+          errors: validationResult.error.errors,
         }),
       };
     }
 
-    if (typeof content !== 'string') {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Content must be a string',
-        }),
-      };
-    }
+    const { client_id, event_id, event_type, content } = validationResult.data;
 
-    const notification = await createNotificationUseCase.execute(client_id, event_type, content);
+    const notification = await createNotificationUseCase.execute(client_id, event_id, event_type, content);
 
     return {
       statusCode: 201,
       body: JSON.stringify(notification),
     };
   } catch (error) {
-    const { client_id, event_type, content } = JSON.parse(event.body || '{}');
+    const rawInput = JSON.parse(event.body || '{}');
     
     logger.error('Error creating notification', { 
       error: error instanceof Error ? {
@@ -56,9 +53,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         name: error.name,
         stack: error.stack
       } : error,
-      client_id,
-      event_type,
-      content
+      input: rawInput
     });
     
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';

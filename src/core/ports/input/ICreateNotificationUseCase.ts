@@ -1,5 +1,5 @@
 import { Notification } from '../../domain/models/Notification';
 
 export interface ICreateNotificationUseCase {
-  execute(clientId: string, eventType: string, content: any): Promise<Notification>;
+  execute(clientId: string, eventId: string, eventType: string, content: string): Promise<Notification>;
 } 
