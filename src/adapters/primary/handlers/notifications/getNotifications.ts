@@ -12,13 +12,12 @@ import { DeliveryStatus } from '../../../../core/domain/valueObjects/DeliverySta
 import { ValidationError } from '../../../../lib/errorHandler';
 
 // Configuración del cliente de almacenamiento
+const region = process.env.AWS_REGION || 'us-east-1';
+const endpoint = process.env.DYNAMODB_ENDPOINT;
+
 const storageConfig: StorageConfig = {
-  region: process.env.CLOUD_REGION || 'us-east-1',
-  endpoint: process.env.STORAGE_ENDPOINT || 'http://localhost:8000',
-  credentials: {
-    accessKeyId: process.env.CLOUD_ACCESS_KEY_ID || 'local',
-    secretAccessKey: process.env.CLOUD_SECRET_ACCESS_KEY || 'local'
-  }
+  region,
+  endpoint,
 };
 
 // Inyección de dependencias
